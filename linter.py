@@ -27,7 +27,6 @@ class ERBLint(Linter):
     ignore the extra warning (when not passing a config file to `erblint`) we
     set `error_stream` to `util.STREAM_STDOUT`.
     """
-    cmd = 'erblint ${args} ${temp_file}'
     regex = (
         r'^(?P<message>.*)\n'
         r'In file: .*:(?P<line>[0-9]+)'
@@ -38,3 +37,41 @@ class ERBLint(Linter):
     defaults = {
         'selector': 'text.html.ruby'
     }
+
+    def cmd(self):
+        """Build command, using STDIN if a file path can be determined."""
+
+        command = ['rubocop', '--format', 'emacs', '--display-cop-names']
+
+        path = self.filename
+        if not path:
+            # File is unsaved, and by default unsaved files use the default
+            # rubocop config because they do not technically belong to a folder
+            # that might contain a custom .rubocop.yml. This means the lint
+            # results may not match the rules for the currently open project.
+            #
+            # If the current window has open folders then we can use the
+            # first open folder as a best-guess for the current projects
+            # root folder - we can then pretend that this unsaved file is
+            # inside this root folder, and rubocop will pick up on any
+            # config file if it does exist:
+            folders = self.view.window().folders()
+            if folders:
+                path = os.path.join(folders[0], 'untitled.rb')
+
+        if path:
+            # With this path we can instead pass the file contents in via STDIN
+            # and then tell rubocop to use this path (to search for config
+            # files and to use for matching against configured paths - i.e. for
+            # inheritance, inclusions and exclusions).
+            #
+            # The 'force-exclusion' overrides rubocop's behavior of ignoring
+            # global excludes when the file path is explicitly provided:
+            command += ['--force-exclusion', '--stdin', path]
+            # Ensure the files contents are passed in via STDIN:
+            self.tempfile_suffix = None
+        else:
+            self.tempfile_suffix = 'rb'
+            command += ['${temp_file}']
+
+        return command
