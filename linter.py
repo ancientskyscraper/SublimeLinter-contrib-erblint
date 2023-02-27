@@ -1,3 +1,4 @@
+import os # For the findConfigFileLocation() function
 from SublimeLinter.lint import util, Linter
 
 
