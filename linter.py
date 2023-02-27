@@ -65,14 +65,11 @@ class ERBLint(Linter):
             # files and to use for matching against configured paths - i.e. for
             # inheritance, inclusions and exclusions).
             #
-            configFileLocation = self.findConfig(path)
-            print ("Path was found: '% s'" % configFileLocation)
+            configFileLocation = self.findConfigFileLocation(path)
             command += ['--config', configFileLocation]
             command += ['--stdin', path]
             # Ensure the files contents are passed in via STDIN:
             self.tempfile_suffix = None
-            # self.tempfile_suffix = 'erb'
-            # command += ['${temp_file}']
         else:
             self.tempfile_suffix = 'erb'
             command += ['${temp_file}']
@@ -80,22 +77,17 @@ class ERBLint(Linter):
         return command
 
 
-    def findConfig(self, currentPath):
+    def findConfigFileLocation(self, currentPath):
         # walk PARENT directories looking for `filename`:
-
-        print ("Mission: Find file within '%s' directory" % currentPath)
+        # h/t https://stackoverflow.com/a/54522155
 
         f = '.erb-lint.yml'
-        # d = os.getcwd()
         d = os.path.dirname(currentPath)
-
-        print ("Looking for this file: '%s' in '%s'" % (f, d))
 
         while d != "/" and f not in os.listdir(d):
             d = os.path.abspath(d + "/../")
-            print ("Not found in '%s'" % d)
 
         if os.path.isfile(os.path.join(d,f)):
-            print(f)
-
-        return os.path.join(d,f)
+            return os.path.join(d,f)
+        else:
+            raise ValueError("Could not find config file for erblint: '%s'" % f)
