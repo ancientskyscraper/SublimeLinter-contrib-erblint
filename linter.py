@@ -41,37 +41,61 @@ class ERBLint(Linter):
     def cmd(self):
         """Build command, using STDIN if a file path can be determined."""
 
-        command = ['rubocop', '--format', 'emacs', '--display-cop-names']
+        command = ['erblint']
 
         path = self.filename
         if not path:
             # File is unsaved, and by default unsaved files use the default
-            # rubocop config because they do not technically belong to a folder
-            # that might contain a custom .rubocop.yml. This means the lint
+            # `erblint` config because they do not technically belong to a folder
+            # that might contain a custom `.erb-lint.yml`. This means the lint
             # results may not match the rules for the currently open project.
             #
             # If the current window has open folders then we can use the
             # first open folder as a best-guess for the current projects
             # root folder - we can then pretend that this unsaved file is
-            # inside this root folder, and rubocop will pick up on any
+            # inside this root folder, and `erblint` will pick up on any
             # config file if it does exist:
             folders = self.view.window().folders()
             if folders:
-                path = os.path.join(folders[0], 'untitled.rb')
+                path = os.path.join(folders[0], 'untitled.erb')
 
         if path:
             # With this path we can instead pass the file contents in via STDIN
-            # and then tell rubocop to use this path (to search for config
+            # and then tell `erblint` to use this path (to search for config
             # files and to use for matching against configured paths - i.e. for
             # inheritance, inclusions and exclusions).
             #
-            # The 'force-exclusion' overrides rubocop's behavior of ignoring
-            # global excludes when the file path is explicitly provided:
-            command += ['--force-exclusion', '--stdin', path]
+            configFileLocation = self.findConfig(path)
+            print ("Path was found: '% s'" % configFileLocation)
+            command += ['--config', configFileLocation]
+            command += ['--stdin', path]
             # Ensure the files contents are passed in via STDIN:
             self.tempfile_suffix = None
+            # self.tempfile_suffix = 'erb'
+            # command += ['${temp_file}']
         else:
-            self.tempfile_suffix = 'rb'
+            self.tempfile_suffix = 'erb'
             command += ['${temp_file}']
 
         return command
+
+
+    def findConfig(self, currentPath):
+        # walk PARENT directories looking for `filename`:
+
+        print ("Mission: Find file within '%s' directory" % currentPath)
+
+        f = '.erb-lint.yml'
+        # d = os.getcwd()
+        d = os.path.dirname(currentPath)
+
+        print ("Looking for this file: '%s' in '%s'" % (f, d))
+
+        while d != "/" and f not in os.listdir(d):
+            d = os.path.abspath(d + "/../")
+            print ("Not found in '%s'" % d)
+
+        if os.path.isfile(os.path.join(d,f)):
+            print(f)
+
+        return os.path.join(d,f)
